@@ -162,6 +162,9 @@ def search(base_url: str, content_type: str, access_token: str, country: str, op
         'numPage': num_page
     })
 
+    if response.status_code == 429:
+        raise TooManyRequestsException('You have reached your monthly quota.')
+
     return json.loads(response.content)
 
 
@@ -226,14 +229,19 @@ def flatten_value(row: list, column_index: int, sub_keys: list) -> None:
 
 
 def export_to_csv_file(results: list, file_name: str) -> None:
-    with open(file_name, 'w') as output_file:
-        for line in results:
-            output_file.write(';'.join(
-                [str(i) for i in line]
-            ) + '\n')
+
+    if results is None:
+        print('No results found.')
+    else:
+        with open(file_name, 'w') as output_file:
+            for line in results:
+                output_file.write(';'.join(
+                    [str(i) for i in line]
+                ) + '\n')
 
 
 def main():
+
     base_url = 'http://api.idealista.com'
     content_type = 'application/x-www-form-urlencoded;charset=UTF-8'
 
@@ -251,20 +259,29 @@ def main():
 
         for iteration in plan:
 
-            partial_results = search(base_url=base_url, content_type=content_type, access_token=access_token,
-                                     country=args.country, operation=args.operation, property_type=args.property_type,
-                                     latitude=args.latitude, longitude=args.longitude, distance=args.distance,
-                                     order=args.order, sort=args.sort,
-                                     max_items=iteration['items'], num_page=iteration['page'])['elementList']
+            try:
+                partial_results = search(base_url=base_url, content_type=content_type,
+                                         access_token=access_token, country=args.country,
+                                         operation=args.operation, property_type=args.property_type,
+                                         latitude=args.latitude, longitude=args.longitude,
+                                         distance=args.distance, order=args.order, sort=args.sort,
+                                         max_items=iteration['items'], num_page=iteration['page'])['elementList']
 
-            partial_results = convert_results_from_json_to_table(partial_results, keys)
+                partial_results = convert_results_from_json_to_table(partial_results, keys)
 
-            if full_results is None:
-                full_results = partial_results
-            else:
-                full_results.extend(partial_results[1:])
+                if full_results is None:
+                    full_results = partial_results
+                else:
+                    full_results.extend(partial_results[1:])
+
+            except TooManyRequestsException as ex:
+                print(ex)
 
         export_to_csv_file(full_results, args.output)
+
+
+class TooManyRequestsException(Exception):
+    pass
 
 
 if __name__ == '__main__':
