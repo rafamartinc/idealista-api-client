@@ -12,9 +12,11 @@ from __future__ import print_function
 import argparse
 import requests
 import base64
+import json
 
 
 def process_args():
+
     parser = argparse.ArgumentParser(description='Runs the script.')
 
     parser.add_argument('--apikey', '-a',
@@ -38,12 +40,9 @@ def encode_credentials_in_base64(apikey: str, secret: str) -> str:
     return base64_credentials_str
 
 
-def main():
+def login(base_url: str, apikey: str, secret: str) -> str:
 
-    base_url = 'http://api.idealista.com'
-    args = process_args()
-
-    login_credentials = encode_credentials_in_base64(args.apikey, args.secret)
+    login_credentials = encode_credentials_in_base64(apikey, secret)
 
     url = base_url + '/oauth/token'
     response = requests.post(url, headers={
@@ -54,7 +53,16 @@ def main():
         'grant_type': 'client_credentials'
     })
 
-    print(response.content)
+    return json.loads(response.content)['access_token']
+
+
+def main():
+
+    base_url = 'http://api.idealista.com'
+    args = process_args()
+
+    access_token = login(base_url, args.apikey, args.secret)
+    print(access_token)
 
 
 if __name__ == '__main__':
