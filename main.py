@@ -36,6 +36,22 @@ def process_args():
     return parser.parse_args()
 
 
+def get_fields_for_each_result(config: dict) -> list:
+
+    fields = config['fields']
+
+    i = 0
+    element_list = None
+    while i < len(fields) and element_list is None:
+        if isinstance(fields[i], dict) \
+                and 'elementList' in fields[i] \
+                and 'fields' in fields[i]['elementList']:
+            element_list = fields[i]['elementList']
+        i += 1
+
+    return element_list['fields']
+
+
 def encode_credentials_in_base64(apikey: str, secret: str) -> str:
     raw_credentials_str = apikey + ':' + secret
     raw_credentials_bytes = raw_credentials_str.encode('ascii')
@@ -93,6 +109,7 @@ def main():
     args = process_args()
     with open(args.config, 'r') as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
+        fields = get_fields_for_each_result(config)
 
         access_token = login(base_url=base_url, content_type=content_type,
                              apikey=args.apikey, secret=args.secret)
@@ -102,17 +119,6 @@ def main():
                               latitude=40.456176, longitude=-3.690273, distance=900,
                               order='distance', sort='asc',
                               max_items=2, num_page=1)['elementList']
-
-        fields = config['fields']
-        element_list = None
-        i = 0
-        while i < len(fields) and element_list is None:
-            if isinstance(fields[i], dict) \
-                    and 'elementList' in fields[i] \
-                    and 'fields' in fields[i]['elementList']:
-                element_list = fields[i]['elementList']
-            i += 1
-        fields = element_list['fields']
 
         results_list = [fields] + [
             [
