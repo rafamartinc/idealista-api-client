@@ -28,13 +28,56 @@ def process_args():
                         help='Secret provided by Idealista to access their API.',
                         type=str)
 
+    parser.add_argument('--latitude',
+                        help='Latitude to be used as center of the search area.',
+                        type=float)
+
+    parser.add_argument('--longitude',
+                        help='Longitude to be used as center of the search area.',
+                        type=float)
+
+    parser.add_argument('--distance', '-d',
+                        help='Radius (distance from the center) to be used as search area, in meters (default: 1000).',
+                        type=int,
+                        default=1000)
+
+    parser.add_argument('--order',
+                        help='Ordering method for the results (default: distance).',
+                        type=str,
+                        default='distance')
+
+    parser.add_argument('--sort',
+                        help='Sort method, used in conjunction with the ordering method (default: asc).',
+                        type=str,
+                        default='asc')
+
+    parser.add_argument('--property_type',
+                        help='Property type (default: homes).',
+                        type=str,
+                        default='homes')
+
+    parser.add_argument('--operation',
+                        help='Operation associated to the property (default: sale).',
+                        type=str,
+                        default='sale')
+
+    parser.add_argument('--country',
+                        help='Country (default: es).',
+                        type=str,
+                        default='es')
+
+    parser.add_argument('--num_items', '-n',
+                        help='Number of items to retrieve, with the specified criteria (default: 50).',
+                        type=int,
+                        default=50)
+
     parser.add_argument('--output', '-o',
-                        help='Path where the output CSV file should be written.',
+                        help='Path where the output CSV file should be written (default: output.csv).',
                         type=str,
                         default='output.csv')
 
     parser.add_argument('--config', '-c',
-                        help='Path where the configuration file can be found, in YML format.',
+                        help='Path where the configuration file can be found, in YML format (default: conf/config.yaml).',
                         type=str,
                         default=os.path.join('conf', 'config.yaml'))
 
@@ -203,15 +246,15 @@ def main():
         access_token = login(base_url=base_url, content_type=content_type,
                              apikey=args.apikey, secret=args.secret)
 
-        plan = design_download_plan(200)
+        plan = design_download_plan(args.num_items)
         full_results = None
 
         for iteration in plan:
 
             partial_results = search(base_url=base_url, content_type=content_type, access_token=access_token,
-                                     country='es', operation='sale', property_type='homes',
-                                     latitude=40.456176, longitude=-3.690273, distance=900,
-                                     order='distance', sort='asc',
+                                     country=args.country, operation=args.operation, property_type=args.property_type,
+                                     latitude=args.latitude, longitude=args.longitude, distance=args.distance,
+                                     order=args.order, sort=args.sort,
                                      max_items=iteration['items'], num_page=iteration['page'])['elementList']
 
             partial_results = convert_results_from_json_to_table(partial_results, keys)
