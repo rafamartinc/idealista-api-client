@@ -28,20 +28,27 @@ def process_args():
     return parser.parse_args()
 
 
+def encode_credentials_in_base64(apikey: str, secret: str) -> str:
+
+    raw_credentials_str = apikey + ':' + secret
+    raw_credentials_bytes = raw_credentials_str.encode('ascii')
+    base64_credentials_bytes = base64.b64encode(raw_credentials_bytes)
+    base64_credentials_str = base64_credentials_bytes.decode('ascii')
+
+    return base64_credentials_str
+
+
 def main():
 
     base_url = 'http://api.idealista.com'
     args = process_args()
 
-    raw_credentials_str = args.apikey + ':' + args.secret
-    raw_credentials_bytes = raw_credentials_str.encode('ascii')
-    base64_credentials_bytes = base64.b64encode(raw_credentials_bytes)
-    base64_credentials_str = base64_credentials_bytes.decode('ascii')
+    login_credentials = encode_credentials_in_base64(args.apikey, args.secret)
 
     url = base_url + '/oauth/token'
     response = requests.post(url, headers={
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'Authorization': 'Basic ' + base64_credentials_str
+        'Authorization': 'Basic ' + login_credentials
     }, data={
         'scope': 'read',
         'grant_type': 'client_credentials'
