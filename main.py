@@ -75,8 +75,8 @@ def search(base_url: str, content_type: str, access_token: str, country: str, op
     return json.loads(response.content)
 
 
-def extract_key(dictionary: dict, key: object) -> object:
-    return dictionary[key] if key in dictionary else None
+def extract_key(dictionary: object, key: object) -> object:
+    return dictionary[key] if isinstance(dictionary, dict) and key in dictionary else None
 
 
 def main():
@@ -104,12 +104,12 @@ def main():
         'newDevelopment', 'tenantGender', 'garageType',
         {
             'object_name': 'parkingSpace',
-            'fields': ['hasParkingSpace', 'isParkingSpaceIncludedInPrice', 'parkingSpacePrice']
+            'headers': ['hasParkingSpace', 'isParkingSpaceIncludedInPrice', 'parkingSpacePrice']
         },
         'hasLift', 'newDevelopmentFinished', 'isSmokingAllowed', 'priceByArea',
         {
             'object_name': 'detailedType',
-            'fields': ['typology', 'subTypology']
+            'headers': ['typology', 'subTypology']
         },
         'externalReference'
     ]
@@ -124,6 +124,33 @@ def main():
         ]
         for json_item in json_contents
     ]
+
+    # Flatten columns that contain multiple fields.
+    headers = list_contents[0]
+    column_index = len(headers) - 1
+    while column_index >= 0:
+        header = headers[column_index]
+
+        # If this column contains multiple fields.
+        if isinstance(header, dict):
+            sub_headers = header['headers'][::-1]
+
+            # For each row of data.
+            for row in range(1, len(list_contents)):
+                object_value = list_contents[row][column_index]
+
+                # Flatten field within row.
+                for sub_header in sub_headers:
+                    sub_value = extract_key(object_value, sub_header)
+                    list_contents[row].insert(column_index + 1, sub_value)
+                list_contents[row].pop(column_index)
+
+            # Finally, update the headers accordingly.
+            for sub_header in sub_headers:
+                headers.insert(column_index + 1, sub_header)
+            headers.pop(column_index)
+
+        column_index -= 1
 
     print(list_contents)
 
