@@ -62,7 +62,26 @@ def main():
     args = process_args()
 
     access_token = login(base_url, args.apikey, args.secret)
-    print(access_token)
+
+    country = 'es'
+    url = base_url + '/3.5/' + country + '/search'
+    response = requests.post(url, headers={
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'Authorization': 'Bearer ' + access_token
+    }, data={
+        'operation': 'sale',
+        'propertyType': 'homes',
+        'center': '40.456176,-3.690273',
+        'distance': 900,
+        'order': 'distance',
+        'sort': 'asc',
+        'maxItems': 2,
+        'numPage': 1
+    })
+
+    results = json.loads(response.content)
+
+    print(json.dumps(results, indent=4, sort_keys=True))
 
 
 if __name__ == '__main__':
