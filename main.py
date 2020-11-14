@@ -10,6 +10,8 @@ the appropriate credentials.
 
 from __future__ import print_function
 import argparse
+import requests
+import base64
 
 
 def process_args():
@@ -27,10 +29,25 @@ def process_args():
 
 
 def main():
+
+    base_url = 'http://api.idealista.com'
     args = process_args()
 
-    print(args.apikey)
-    print(args.secret)
+    raw_credentials_str = args.apikey + ':' + args.secret
+    raw_credentials_bytes = raw_credentials_str.encode('ascii')
+    base64_credentials_bytes = base64.b64encode(raw_credentials_bytes)
+    base64_credentials_str = base64_credentials_bytes.decode('ascii')
+
+    url = base_url + '/oauth/token'
+    response = requests.post(url, headers={
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'Authorization': 'Basic ' + base64_credentials_str
+    }, data={
+        'scope': 'read',
+        'grant_type': 'client_credentials'
+    })
+
+    print(response.content)
 
 
 if __name__ == '__main__':
