@@ -36,20 +36,20 @@ def process_args():
     return parser.parse_args()
 
 
-def get_fields_for_each_result(config: dict) -> list:
+def get_keys(config: dict) -> list:
 
-    fields = config['fields']
+    fields = config['keys']
 
     i = 0
     element_list = None
     while i < len(fields) and element_list is None:
         if isinstance(fields[i], dict) \
                 and 'elementList' in fields[i] \
-                and 'fields' in fields[i]['elementList']:
+                and 'keys' in fields[i]['elementList']:
             element_list = fields[i]['elementList']
         i += 1
 
-    return element_list['fields']
+    return element_list['keys']
 
 
 def encode_credentials_in_base64(apikey: str, secret: str) -> str:
@@ -98,8 +98,68 @@ def search(base_url: str, content_type: str, access_token: str, country: str, op
     return json.loads(response.content)
 
 
-def extract_key(dictionary: object, key: object) -> object:
+def extract_value(dictionary: object, key: object) -> object:
     return dictionary[key] if isinstance(dictionary, dict) and key in dictionary else None
+
+
+def convert_results_from_json_to_table(results: dict, keys: list) -> list:
+
+    results = [keys] + [
+        [
+            extract_value(
+                json_item,
+                list(field.keys())[0] if isinstance(field, dict) else field
+            )
+            for field in keys
+        ]
+        for json_item in results
+    ]
+
+    flatten_keys_with_nested_sub_keys(results)
+
+    return results
+
+
+def flatten_keys_with_nested_sub_keys(results: list) -> None:
+
+    keys = results[0]
+    column_index = len(keys) - 1
+    while column_index >= 0:
+        key = keys[column_index]
+
+        # If this column contains multiple fields.
+        if isinstance(key, dict):
+            key_name = list(key.keys())[0]
+            sub_keys = key[key_name]['keys'][::-1]
+
+            for row in range(1, len(results)):
+                flatten_value(results[row], column_index, sub_keys)
+
+            flatten_key(keys, column_index)
+
+        column_index -= 1
+
+
+def flatten_key(keys: list, column_index: int) -> None:
+
+    key = keys[column_index]
+    key_name = list(key.keys())[0]
+    sub_keys = key[key_name]['keys'][::-1]
+
+    for sub_key in sub_keys:
+        keys.insert(column_index + 1, sub_key)
+    keys.pop(column_index)
+
+
+def flatten_value(row: list, column_index: int, sub_keys: list) -> None:
+
+    object_value = row[column_index]
+
+    for sub_header in sub_keys:
+        sub_value = extract_value(object_value, sub_header)
+        row.insert(column_index + 1, sub_value)
+
+    row.pop(column_index)
 
 
 def main():
@@ -109,57 +169,20 @@ def main():
     args = process_args()
     with open(args.config, 'r') as ymlfile:
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
-        fields = get_fields_for_each_result(config)
+        keys = get_keys(config)
 
         access_token = login(base_url=base_url, content_type=content_type,
                              apikey=args.apikey, secret=args.secret)
 
-        results_json = search(base_url=base_url, content_type=content_type, access_token=access_token,
+        results = search(base_url=base_url, content_type=content_type, access_token=access_token,
                               country='es', operation='sale', property_type='homes',
                               latitude=40.456176, longitude=-3.690273, distance=900,
                               order='distance', sort='asc',
                               max_items=2, num_page=1)['elementList']
 
-        results_list = [fields] + [
-            [
-                extract_key(
-                    json_item,
-                    list(field.keys())[0] if isinstance(field, dict) else field
-                )
-                for field in fields
-            ]
-            for json_item in results_json
-        ]
+        results = convert_results_from_json_to_table(results, keys)
 
-        # Flatten columns that contain multiple fields.
-        fields = results_list[0]
-        column_index = len(fields) - 1
-        while column_index >= 0:
-            field = fields[column_index]
-
-            # If this column contains multiple fields.
-            if isinstance(field, dict):
-                field_name = list(field.keys())[0]
-                sub_headers = field[field_name]['fields'][::-1]
-
-                # For each row of data.
-                for row in range(1, len(results_list)):
-                    object_value = results_list[row][column_index]
-
-                    # Flatten field within row.
-                    for sub_header in sub_headers:
-                        sub_value = extract_key(object_value, sub_header)
-                        results_list[row].insert(column_index + 1, sub_value)
-                    results_list[row].pop(column_index)
-
-                # Finally, update the headers accordingly.
-                for sub_header in sub_headers:
-                    fields.insert(column_index + 1, sub_header)
-                fields.pop(column_index)
-
-            column_index -= 1
-
-        print(results_list)
+        print(results)
 
 
 if __name__ == '__main__':

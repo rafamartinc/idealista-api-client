@@ -1,4 +1,4 @@
-fields:
+keys:
     - actualPage
     - itemsPerPage
     - lowerRangePosition
@@ -8,7 +8,7 @@ fields:
     - totalPages
     - upperRangePosition
     - elementList:
-        fields:
+        keys:
             - address
             - bathrooms
             - country
@@ -38,7 +38,7 @@ fields:
             - tenantGender
             - garageType
             - parkingSpace:
-                fields:
+                keys:
                     - hasParkingSpace
                     - isParkingSpaceIncludedInPrice
                     - parkingSpacePrice
@@ -47,7 +47,7 @@ fields:
             - isSmokingAllowed
             - priceByArea
             - detailedType:
-                fields:
+                keys:
                     - typology
                     - subtypology
             - externalReference
