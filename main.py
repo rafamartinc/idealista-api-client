@@ -18,7 +18,6 @@ import os
 
 
 def process_args():
-
     parser = argparse.ArgumentParser(description='Runs the script.')
 
     parser.add_argument('--apikey', '-a',
@@ -64,6 +63,26 @@ def encode_credentials_in_base64(apikey: str, secret: str) -> str:
     base64_credentials_str = base64_credentials_bytes.decode('ascii')
 
     return base64_credentials_str
+
+
+def design_download_plan(total_items: int, max_per_batch: int = 50) -> list:
+    remainder = total_items % max_per_batch
+    num_pages = int((total_items - remainder) / max_per_batch) + (1 if remainder > 0 else 0)
+
+    plan = []
+    for page in range(num_pages):
+        if page == num_pages - 1 and remainder > 0:
+            plan.append({
+                'page': page + 1,
+                'items': remainder
+            })
+        else:
+            plan.append({
+                'page': page + 1,
+                'items': max_per_batch
+            })
+
+    return plan
 
 
 def login(base_url: str, content_type: str, apikey: str, secret: str) -> str:
@@ -164,7 +183,6 @@ def flatten_value(row: list, column_index: int, sub_keys: list) -> None:
 
 
 def export_to_csv_file(results: list, file_name: str) -> None:
-
     with open(file_name, 'w') as output_file:
         for line in results:
             output_file.write(';'.join(
@@ -185,15 +203,25 @@ def main():
         access_token = login(base_url=base_url, content_type=content_type,
                              apikey=args.apikey, secret=args.secret)
 
-        results = search(base_url=base_url, content_type=content_type, access_token=access_token,
-                         country='es', operation='sale', property_type='homes',
-                         latitude=40.456176, longitude=-3.690273, distance=900,
-                         order='distance', sort='asc',
-                         max_items=2, num_page=1)['elementList']
+        plan = design_download_plan(200)
+        full_results = None
 
-        results = convert_results_from_json_to_table(results, keys)
+        for iteration in plan:
 
-        export_to_csv_file(results, args.output)
+            partial_results = search(base_url=base_url, content_type=content_type, access_token=access_token,
+                                     country='es', operation='sale', property_type='homes',
+                                     latitude=40.456176, longitude=-3.690273, distance=900,
+                                     order='distance', sort='asc',
+                                     max_items=iteration['items'], num_page=iteration['page'])['elementList']
+
+            partial_results = convert_results_from_json_to_table(partial_results, keys)
+
+            if full_results is None:
+                full_results = partial_results
+            else:
+                full_results.extend(partial_results[1:])
+
+        export_to_csv_file(full_results, args.output)
 
 
 if __name__ == '__main__':
