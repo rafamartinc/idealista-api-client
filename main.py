@@ -18,12 +18,8 @@ import os
 
 
 def process_args():
-    parser = argparse.ArgumentParser(description='Runs the script.')
 
-    parser.add_argument('--config', '-c',
-                        help='Path where the configuration file can be found, in YML format.',
-                        type=str,
-                        default=os.path.join('conf', 'config.yaml'))
+    parser = argparse.ArgumentParser(description='Runs the script.')
 
     parser.add_argument('--apikey', '-a',
                         help='API Key provided by Idealista to access their API.',
@@ -33,11 +29,20 @@ def process_args():
                         help='Secret provided by Idealista to access their API.',
                         type=str)
 
+    parser.add_argument('--output', '-o',
+                        help='Path where the output CSV file should be written.',
+                        type=str,
+                        default='output.csv')
+
+    parser.add_argument('--config', '-c',
+                        help='Path where the configuration file can be found, in YML format.',
+                        type=str,
+                        default=os.path.join('conf', 'config.yaml'))
+
     return parser.parse_args()
 
 
 def get_keys(config: dict) -> list:
-
     fields = config['keys']
 
     i = 0
@@ -103,7 +108,6 @@ def extract_value(dictionary: object, key: object) -> object:
 
 
 def convert_results_from_json_to_table(results: dict, keys: list) -> list:
-
     results = [keys] + [
         [
             extract_value(
@@ -121,7 +125,6 @@ def convert_results_from_json_to_table(results: dict, keys: list) -> list:
 
 
 def flatten_keys_with_nested_sub_keys(results: list) -> None:
-
     keys = results[0]
     column_index = len(keys) - 1
     while column_index >= 0:
@@ -141,7 +144,6 @@ def flatten_keys_with_nested_sub_keys(results: list) -> None:
 
 
 def flatten_key(keys: list, column_index: int) -> None:
-
     key = keys[column_index]
     key_name = list(key.keys())[0]
     sub_keys = key[key_name]['keys'][::-1]
@@ -152,7 +154,6 @@ def flatten_key(keys: list, column_index: int) -> None:
 
 
 def flatten_value(row: list, column_index: int, sub_keys: list) -> None:
-
     object_value = row[column_index]
 
     for sub_header in sub_keys:
@@ -162,12 +163,22 @@ def flatten_value(row: list, column_index: int, sub_keys: list) -> None:
     row.pop(column_index)
 
 
+def export_to_csv_file(results: list, file_name: str) -> None:
+
+    with open(file_name, 'w') as output_file:
+        for line in results:
+            output_file.write(';'.join(
+                [str(i) for i in line]
+            ) + '\n')
+
+
 def main():
     base_url = 'http://api.idealista.com'
     content_type = 'application/x-www-form-urlencoded;charset=UTF-8'
 
     args = process_args()
     with open(args.config, 'r') as ymlfile:
+
         config = yaml.load(ymlfile, Loader=yaml.FullLoader)
         keys = get_keys(config)
 
@@ -175,14 +186,14 @@ def main():
                              apikey=args.apikey, secret=args.secret)
 
         results = search(base_url=base_url, content_type=content_type, access_token=access_token,
-                              country='es', operation='sale', property_type='homes',
-                              latitude=40.456176, longitude=-3.690273, distance=900,
-                              order='distance', sort='asc',
-                              max_items=2, num_page=1)['elementList']
+                         country='es', operation='sale', property_type='homes',
+                         latitude=40.456176, longitude=-3.690273, distance=900,
+                         order='distance', sort='asc',
+                         max_items=2, num_page=1)['elementList']
 
         results = convert_results_from_json_to_table(results, keys)
 
-        print(results)
+        export_to_csv_file(results, args.output)
 
 
 if __name__ == '__main__':
