@@ -13,10 +13,17 @@ import argparse
 import requests
 import base64
 import json
+import yaml
+import os
 
 
 def process_args():
     parser = argparse.ArgumentParser(description='Runs the script.')
+
+    parser.add_argument('--config', '-c',
+                        help='Path where the configuration file can be found, in YML format.',
+                        type=str,
+                        default=os.path.join('conf', 'config.yaml'))
 
     parser.add_argument('--apikey', '-a',
                         help='API Key provided by Idealista to access their API.',
@@ -84,75 +91,69 @@ def main():
     content_type = 'application/x-www-form-urlencoded;charset=UTF-8'
 
     args = process_args()
+    with open(args.config, 'r') as ymlfile:
+        config = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
-    access_token = login(base_url=base_url, content_type=content_type,
-                         apikey=args.apikey, secret=args.secret)
+        access_token = login(base_url=base_url, content_type=content_type,
+                             apikey=args.apikey, secret=args.secret)
 
-    results = search(base_url=base_url, content_type=content_type, access_token=access_token,
-                     country='es', operation='sale', property_type='homes',
-                     latitude=40.456176, longitude=-3.690273, distance=900,
-                     order='distance', sort='asc',
-                     max_items=2, num_page=1)
+        results_json = search(base_url=base_url, content_type=content_type, access_token=access_token,
+                              country='es', operation='sale', property_type='homes',
+                              latitude=40.456176, longitude=-3.690273, distance=900,
+                              order='distance', sort='asc',
+                              max_items=2, num_page=1)['elementList']
 
-    json_contents = results['elementList']
+        fields = config['fields']
+        element_list = None
+        i = 0
+        while i < len(fields) and element_list is None:
+            if isinstance(fields[i], dict) \
+                    and 'elementList' in fields[i] \
+                    and 'fields' in fields[i]['elementList']:
+                element_list = fields[i]['elementList']
+            i += 1
+        fields = element_list['fields']
 
-    headers = [
-        'address', 'bathrooms', 'country', 'distance', 'district', 'exterior',
-        'floor', 'hasVideo', 'latitude', 'longitude', 'municipality', 'neighborhood',
-        'numPhotos', 'operation', 'price', 'propertyCode', 'province', 'region',
-        'rooms', 'showAddress', 'size', 'subregion', 'thumbnail', 'url', 'status',
-        'newDevelopment', 'tenantGender', 'garageType',
-        {
-            'object_name': 'parkingSpace',
-            'headers': ['hasParkingSpace', 'isParkingSpaceIncludedInPrice', 'parkingSpacePrice']
-        },
-        'hasLift', 'newDevelopmentFinished', 'isSmokingAllowed', 'priceByArea',
-        {
-            'object_name': 'detailedType',
-            'headers': ['typology', 'subTypology']
-        },
-        'externalReference'
-    ]
-
-    list_contents = [headers] + [
-        [
-            extract_key(
-                json_item,
-                header['object_name'] if isinstance(header, dict) else header
-            )
-            for header in headers
+        results_list = [fields] + [
+            [
+                extract_key(
+                    json_item,
+                    list(field.keys())[0] if isinstance(field, dict) else field
+                )
+                for field in fields
+            ]
+            for json_item in results_json
         ]
-        for json_item in json_contents
-    ]
 
-    # Flatten columns that contain multiple fields.
-    headers = list_contents[0]
-    column_index = len(headers) - 1
-    while column_index >= 0:
-        header = headers[column_index]
+        # Flatten columns that contain multiple fields.
+        fields = results_list[0]
+        column_index = len(fields) - 1
+        while column_index >= 0:
+            field = fields[column_index]
 
-        # If this column contains multiple fields.
-        if isinstance(header, dict):
-            sub_headers = header['headers'][::-1]
+            # If this column contains multiple fields.
+            if isinstance(field, dict):
+                field_name = list(field.keys())[0]
+                sub_headers = field[field_name]['fields'][::-1]
 
-            # For each row of data.
-            for row in range(1, len(list_contents)):
-                object_value = list_contents[row][column_index]
+                # For each row of data.
+                for row in range(1, len(results_list)):
+                    object_value = results_list[row][column_index]
 
-                # Flatten field within row.
+                    # Flatten field within row.
+                    for sub_header in sub_headers:
+                        sub_value = extract_key(object_value, sub_header)
+                        results_list[row].insert(column_index + 1, sub_value)
+                    results_list[row].pop(column_index)
+
+                # Finally, update the headers accordingly.
                 for sub_header in sub_headers:
-                    sub_value = extract_key(object_value, sub_header)
-                    list_contents[row].insert(column_index + 1, sub_value)
-                list_contents[row].pop(column_index)
+                    fields.insert(column_index + 1, sub_header)
+                fields.pop(column_index)
 
-            # Finally, update the headers accordingly.
-            for sub_header in sub_headers:
-                headers.insert(column_index + 1, sub_header)
-            headers.pop(column_index)
+            column_index -= 1
 
-        column_index -= 1
-
-    print(list_contents)
+        print(results_list)
 
 
 if __name__ == '__main__':

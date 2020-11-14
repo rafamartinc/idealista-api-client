@@ -1,0 +1,53 @@
+fields:
+    - actualPage
+    - itemsPerPage
+    - lowerRangePosition
+    - paginable
+    - summary
+    - total
+    - totalPages
+    - upperRangePosition
+    - elementList:
+        fields:
+            - address
+            - bathrooms
+            - country
+            - distance
+            - district
+            - exterior
+            - floor
+            - hasVideo
+            - latitude
+            - longitude
+            - municipality
+            - neighborhood
+            - numPhotos
+            - operation
+            - price
+            - propertyCode
+            - province
+            - region
+            - rooms
+            - showAddress
+            - size
+            - subregion
+            - thumbnail
+            - url
+            - status
+            - newDevelopment
+            - tenantGender
+            - garageType
+            - parkingSpace:
+                fields:
+                    - hasParkingSpace
+                    - isParkingSpaceIncludedInPrice
+                    - parkingSpacePrice
+            - hasLift
+            - newDevelopmentFinished
+            - isSmokingAllowed
+            - priceByArea
+            - detailedType:
+                fields:
+                    - typology
+                    - subtypology
+            - externalReference
